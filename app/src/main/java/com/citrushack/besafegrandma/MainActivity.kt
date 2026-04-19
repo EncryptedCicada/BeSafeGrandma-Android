@@ -742,19 +742,6 @@ fun SummaryCard(summary: String) {
                     letterSpacing = 1.sp,
                     color         = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Text(
-                        "AI SUMMARY",
-                        Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        letterSpacing = 0.5.sp,
-                    )
-                }
             }
             Spacer(Modifier.height(16.dp))
             Text(summary, style = MaterialTheme.typography.bodyMedium, lineHeight = 24.sp)

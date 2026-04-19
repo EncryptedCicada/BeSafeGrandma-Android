@@ -23,7 +23,7 @@ data class UiState(
     val analysis: ScamAnalysis? = null,
     val errorMessage: String? = null,
 ) {
-    /** Combined text sent to the API. */
+    /** Combined text sent to the heuristic analyzer. */
     val fullTranscript: String
         get() = buildString {
             append(committedTranscript)
@@ -138,7 +138,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    private suspend fun analyzeCurrentTranscript() {
+    private fun analyzeCurrentTranscript() {
         val state = _uiState.value
         if (state.recordingState != RecordingState.Listening) return
 
@@ -146,34 +146,36 @@ class MainViewModel : ViewModel() {
         val wordCount  = transcript.split(Regex("\\s+")).count { it.isNotEmpty() }
         if (wordCount < MIN_WORDS_FOR_ANALYSIS) return
 
-        try {
-            val result = ApiService.analyze(transcript)
+        val result = ScamHeuristics.analyze(transcript)
 
-            if (result.scamLikelihoodScore >= 50) crossed50 = true
-            peakScore    = maxOf(peakScore, result.scamLikelihoodScore)
-            sampleCount++
-            sampleSum   += result.scamLikelihoodScore
+        if (result.score >= 50) crossed50 = true
+        peakScore    = maxOf(peakScore, result.score)
+        sampleCount++
+        sampleSum   += result.score
 
-            // Ratchet: don't let live score fall back below 50 once triggered.
-            val liveScore = if (crossed50)
-                maxOf(result.scamLikelihoodScore, 50)
-            else
-                result.scamLikelihoodScore
+        // Ratchet: don't let live score fall back below 50 once triggered.
+        val liveScore = if (crossed50)
+            maxOf(result.score, 50)
+        else
+            result.score
 
-            _uiState.update {
-                it.copy(
-                    analysis = ScamAnalysis(
-                        score          = liveScore,
-                        riskLevel      = scoreToRiskLevel(liveScore),
-                        flaggedPhrases = result.criticalIndicators,
-                        summary        = result.reasoningSummary,
-                    ),
-                    errorMessage = null,
-                )
-            }
-        } catch (e: Exception) {
-            // Non-fatal — show in Snackbar, keep recording.
-            _uiState.update { it.copy(errorMessage = "Analysis failed: ${e.message}") }
+        val summary = if (result.matchedPhrases.isNotEmpty()) {
+            "The following phrases frequently used in scam calls have been detected: " +
+                result.matchedPhrases.joinToString(", ")
+        } else {
+            "The following phrases frequently used in scam calls have been detected: none yet."
+        }
+
+        _uiState.update {
+            it.copy(
+                analysis = ScamAnalysis(
+                    score          = liveScore,
+                    riskLevel      = scoreToRiskLevel(liveScore),
+                    flaggedPhrases = result.matchedPhrases,
+                    summary        = summary,
+                ),
+                errorMessage = null,
+            )
         }
     }
 }
